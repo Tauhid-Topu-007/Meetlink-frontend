@@ -13,7 +13,13 @@ const errorHandler = (err, req, res, next) => {
   // Duplicate key
   if (err.code === 11000) {
     const field = Object.keys(err.keyPattern || {})[0] || 'field';
-    return res.status(400).json({ success: false, message: `${field} already exists` });
+    const friendly =
+      field === 'email'
+        ? 'Email already registered. Try signing in or use a different email.'
+        : field === 'username'
+          ? 'Username already taken. Please choose another.'
+          : `${field} already exists`;
+    return res.status(400).json({ success: false, message: friendly });
   }
 
   // JWT

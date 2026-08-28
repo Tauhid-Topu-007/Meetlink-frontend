@@ -75,6 +75,7 @@ export default function MeetingRoom() {
 
   const localVideoRef = useRef(null);
   const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
   const socketRef = useRef(null);
   const peersRef = useRef({});
   const fileInputRef = useRef(null);
@@ -472,11 +473,22 @@ export default function MeetingRoom() {
 
   const stopScreenShare = () => {
     try {
+      // Stop screen tracks
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((t) => t.stop());
+        screenStreamRef.current = null;
+      }
       const camStream = localStreamRef.current;
       const videoTrack = camStream?.getVideoTracks()[0];
       Object.values(peersRef.current).forEach((peer) => {
-        const sender = peer._pc?.getSenders?.().find((s) => s.track?.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+        try {
+          const sender = peer._pc?.getSenders?.().find((s) => s.track?.kind === 'video');
+          if (sender && videoTrack) {
+            sender.replaceTrack(videoTrack);
+            // Trigger renegotiation so receivers update
+            if (typeof peer.negotiate === 'function') peer.negotiate();
+          }
+        } catch (_) {}
       });
       if (localVideoRef.current && camStream) localVideoRef.current.srcObject = camStream;
     } catch (_) {}
@@ -487,24 +499,41 @@ export default function MeetingRoom() {
     socketRef.current?.emit('screen:share', { meetingId, sharing: false });
   };
 
+  // Screen share is available to ALL participants (host and non-host)
   const toggleScreenShare = async () => {
     try {
       if (!screenSharing) {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        // Only one person should share at a time — stop if someone else is sharing
+        if (screenSharerId && screenSharerId !== socketRef.current?.id) {
+          toast.error('Someone else is already sharing their screen');
+          return;
+        }
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always', displaySurface: 'monitor' },
+          audio: false,
+        });
+        screenStreamRef.current = screenStream;
         const videoTrack = screenStream.getVideoTracks()[0];
         Object.values(peersRef.current).forEach((peer) => {
-          const sender = peer._pc?.getSenders?.().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(videoTrack);
+          try {
+            const sender = peer._pc?.getSenders?.().find((s) => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(videoTrack);
+              if (typeof peer.negotiate === 'function') peer.negotiate();
+            }
+          } catch (_) {}
         });
         if (localVideoRef.current) localVideoRef.current.srcObject = screenStream;
         videoTrack.onended = () => stopScreenShare();
         setScreenSharing(true);
         setScreenSharerId(socketRef.current?.id || 'local');
         socketRef.current?.emit('screen:share', { meetingId, sharing: true });
+        toast.success('You are sharing your screen');
       } else {
         stopScreenShare();
       }
-    } catch {
+    } catch (err) {
+      console.warn('Screen share error', err);
       toast.error('Screen share cancelled or failed');
     }
   };
@@ -958,6 +987,7 @@ export default function MeetingRoom() {
                         muted
                         playsInline
                         className={`h-full w-full object-cover ${videoOff ? 'hidden' : ''}`}
+                        style={{ transform: 'scaleX(-1)' }}
                       />
                       {videoOff && (
                         <div className="flex h-full items-center justify-center">
@@ -1002,6 +1032,7 @@ export default function MeetingRoom() {
                     muted
                     playsInline
                     className={`h-full w-full object-cover ${videoOff ? 'hidden' : ''}`}
+                    style={{ transform: screenSharing ? 'none' : 'scaleX(-1)' }}
                   />
                   {videoOff && (
                     <div className="flex h-full min-h-[160px] items-center justify-center">
@@ -1382,19 +1413,54 @@ export default function MeetingRoom() {
                           </tr>
                         </thead>
                         <tbody>
-                          {attendance.participants?.map((p) => (
+                          {attendance.participants?.map((p) => {
+                            // BDT (Asia/Dhaka) — e.g. 2026-08-28 02:02:46 AM
+                            const formatBdt = (isoOrDate) => {
+                              if (!isoOrDate || isoOrDate === 'Still in meeting') return null;
+                              // Backend already sent BDT string like "2026-08-28 02:02:46 AM"
+                              if (
+                                typeof isoOrDate === 'string' &&
+                                /^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}/.test(isoOrDate) &&
+                                !isoOrDate.includes('T')
+                              ) {
+                                return isoOrDate
+                                  .replace(/(\d)(AM|PM)$/i, '$1 $2')
+                                  .replace(/\b(am|pm)\b/gi, (m) => m.toUpperCase());
+                              }
+                              const d = new Date(isoOrDate);
+                              if (Number.isNaN(d.getTime())) return null;
+                              const parts = new Intl.DateTimeFormat('en-GB', {
+                                timeZone: 'Asia/Dhaka',
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true,
+                              }).formatToParts(d);
+                              const get = (type) => parts.find((x) => x.type === type)?.value || '';
+                              const ampm = (get('dayPeriod') || '').toUpperCase();
+                              return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')} ${ampm}`;
+                            };
+                            const joinedDisplay =
+                              formatBdt(p.joinedAtLocal) ||
+                              formatBdt(p.joinedAt) ||
+                              '—';
+                            return (
                             <tr key={p.no} className="border-t border-slate-800/80">
                               <td className="px-3 py-2 text-slate-500">{p.no}</td>
                               <td className="px-3 py-2 text-white">
                                 <div>{p.name}</div>
                                 {p.email && <div className="text-[10px] text-slate-500">{p.email}</div>}
                               </td>
-                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{p.joinedAtLocal || '—'}</td>
+                              <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{joinedDisplay}</td>
                               <td className="px-3 py-2">
                                 <span className={p.status === 'Active' ? 'text-emerald-400' : 'text-slate-500'}>{p.status}</span>
                               </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

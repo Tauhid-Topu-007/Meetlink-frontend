@@ -39,7 +39,14 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || config.corsOrigins.includes(origin) || config.env === 'development') {
+      if (!origin || config.env === 'development') return cb(null, true);
+      const normalized = (origin || '').replace(/\/$/, '');
+      const allowed = config.corsOrigins.map((o) => o.replace(/\/$/, ''));
+      if (
+        allowed.includes(normalized) ||
+        allowed.includes(origin) ||
+        /\.vercel\.app$/.test(normalized) // allow Vercel preview deployments
+      ) {
         return cb(null, true);
       }
       return cb(new Error('Not allowed by CORS'));

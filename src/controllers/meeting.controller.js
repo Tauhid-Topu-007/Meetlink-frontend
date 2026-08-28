@@ -42,7 +42,7 @@ exports.join = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Meeting not found' });
     }
     const result = await meetingService.joinMeeting(meeting, req.user, {
-      password: req.body.password,
+      password: req.body?.password != null ? String(req.body.password) : undefined,
     });
     res.json({
       success: true,

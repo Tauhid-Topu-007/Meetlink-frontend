@@ -187,7 +187,9 @@ meetingSchema.methods.addParticipant = function (user, role = 'participant') {
     userId: user._id,
     displayName: user.displayName || user.username,
     email: user.email,
-    role: this.hostId.toString() === user._id.toString() ? 'host' : role,
+    role: (this.hostId && (this.hostId._id || this.hostId).toString() === user._id.toString())
+      ? 'host'
+      : role,
     joinedAt: new Date(),
     isActive: true,
     isMuted: this.settings.muteOnEntry,

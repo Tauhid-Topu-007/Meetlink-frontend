@@ -1,6 +1,27 @@
 const ExcelJS = require('exceljs');
 const Meeting = require('../models/Meeting');
 
+/** Format date as Bangladesh time: 2026-08-28 02:02:46AM */
+const formatBdTime = (date) => {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  }).formatToParts(d);
+  const get = (type) => parts.find((x) => x.type === type)?.value || '';
+  const dayPeriod = (get('dayPeriod') || '').toUpperCase();
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}${dayPeriod}`;
+};
+
+
 /**
  * Build attendance rows from a meeting document.
  * Unlimited participants — no artificial cap.
@@ -22,9 +43,9 @@ const buildAttendanceRows = (meeting) => {
       email: p.email || '',
       role: p.role || 'participant',
       joinedAt: joinedAt ? joinedAt.toISOString() : '',
-      joinedAtLocal: joinedAt ? joinedAt.toLocaleString() : '',
+      joinedAtLocal: joinedAt ? formatBdTime(joinedAt) : '',
       leftAt: leftAt ? leftAt.toISOString() : p.isActive ? 'Still in meeting' : '',
-      leftAtLocal: leftAt ? leftAt.toLocaleString() : p.isActive ? 'Still in meeting' : '',
+      leftAtLocal: leftAt ? formatBdTime(leftAt) : p.isActive ? 'Still in meeting' : '',
       durationMinutes: durationMin,
       status: p.isActive ? 'Active' : 'Left',
     };
@@ -102,8 +123,8 @@ const generateAttendanceExcel = async (meetingId) => {
     'Name',
     'Email',
     'Role',
-    'Joined At',
-    'Left At',
+    'Joined At (BD)',
+    'Left At (BD)',
     'Duration (min)',
     'Status',
   ];

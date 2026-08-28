@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const groupMemberSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
+    name: { type: String, trim: true, default: '' },
     email: { type: String, trim: true, lowercase: true, default: '' },
     phone: { type: String, trim: true, default: '' },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -20,7 +20,10 @@ const groupSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    members: [groupMemberSchema],
+    members: {
+      type: [groupMemberSchema],
+      default: [],
+    },
     color: { type: String, default: '#6366f1' },
   },
   { timestamps: true }

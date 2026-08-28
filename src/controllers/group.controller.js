@@ -2,10 +2,32 @@ const Group = require('../models/Group');
 const Meeting = require('../models/Meeting');
 const meetingService = require('../services/meeting.service');
 
+function normalizeMembers(members) {
+  if (!Array.isArray(members)) return [];
+  return members
+    .map((m) => {
+      if (typeof m === 'string') {
+        const s = m.trim();
+        if (!s) return null;
+        if (s.includes('@')) {
+          return { name: s.split('@')[0], email: s.toLowerCase(), phone: '' };
+        }
+        return { name: s, email: '', phone: '' };
+      }
+      const email = (m.email || '').trim().toLowerCase();
+      const name = (m.name || '').trim() || (email ? email.split('@')[0] : 'Member');
+      const phone = (m.phone || '').trim();
+      if (!name && !email) return null;
+      return { name, email, phone, userId: m.userId || null };
+    })
+    .filter(Boolean);
+}
+
 const listMine = async (req, res, next) => {
   try {
-    const groups = await Group.find({ ownerId: req.user._id }).sort({ updatedAt: -1 });
-    res.json({ groups });
+    const ownerId = req.user._id;
+    const groups = await Group.find({ ownerId }).sort({ updatedAt: -1 }).lean();
+    res.json({ success: true, groups });
   } catch (err) {
     next(err);
   }
@@ -13,18 +35,41 @@ const listMine = async (req, res, next) => {
 
 const create = async (req, res, next) => {
   try {
-    const { name, description, members, color } = req.body;
-    if (!name?.trim()) {
-      return res.status(400).json({ message: 'Group name is required' });
+    const { name, description, members, color } = req.body || {};
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: 'Group name is required' });
     }
+    if (!req.user?._id) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    const normalized = normalizeMembers(members);
+
     const group = await Group.create({
-      name: name.trim(),
-      description: description || '',
+      name: String(name).trim(),
+      description: description ? String(description).trim() : '',
       ownerId: req.user._id,
-      members: Array.isArray(members) ? members : [],
+      members: normalized,
       color: color || '#6366f1',
     });
-    res.status(201).json({ group });
+
+    console.log(`✅ Group created: ${group._id} by ${req.user.email} (${normalized.length} members)`);
+
+    res.status(201).json({
+      success: true,
+      group: group.toObject ? group.toObject() : group,
+    });
+  } catch (err) {
+    console.error('Group create error:', err.message);
+    next(err);
+  }
+};
+
+const getOne = async (req, res, next) => {
+  try {
+    const group = await Group.findOne({ _id: req.params.id, ownerId: req.user._id }).lean();
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
+    res.json({ success: true, group });
   } catch (err) {
     next(err);
   }
@@ -33,14 +78,14 @@ const create = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const group = await Group.findOne({ _id: req.params.id, ownerId: req.user._id });
-    if (!group) return res.status(404).json({ message: 'Group not found' });
-    const { name, description, members, color } = req.body;
-    if (name !== undefined) group.name = name.trim();
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
+    const { name, description, members, color } = req.body || {};
+    if (name !== undefined) group.name = String(name).trim();
     if (description !== undefined) group.description = description;
-    if (members !== undefined) group.members = members;
+    if (members !== undefined) group.members = normalizeMembers(members);
     if (color !== undefined) group.color = color;
     await group.save();
-    res.json({ group });
+    res.json({ success: true, group });
   } catch (err) {
     next(err);
   }
@@ -49,27 +94,27 @@ const update = async (req, res, next) => {
 const remove = async (req, res, next) => {
   try {
     const group = await Group.findOneAndDelete({ _id: req.params.id, ownerId: req.user._id });
-    if (!group) return res.status(404).json({ message: 'Group not found' });
-    res.json({ message: 'Group deleted' });
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
+    res.json({ success: true, message: 'Group deleted' });
   } catch (err) {
     next(err);
   }
 };
 
-/** Host schedules a meeting for a group at a specific time */
 const scheduleMeeting = async (req, res, next) => {
   try {
     const group = await Group.findOne({ _id: req.params.id, ownerId: req.user._id });
-    if (!group) return res.status(404).json({ message: 'Group not found' });
+    if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
 
-    const { title, scheduledStart, scheduledEnd, password, waitingRoomEnabled, description } = req.body;
+    const { title, scheduledStart, scheduledEnd, password, waitingRoomEnabled, description } =
+      req.body || {};
     if (!scheduledStart) {
-      return res.status(400).json({ message: 'scheduledStart is required' });
+      return res.status(400).json({ success: false, message: 'scheduledStart is required' });
     }
 
     const start = new Date(scheduledStart);
     if (Number.isNaN(start.getTime()) || start < new Date(Date.now() - 60000)) {
-      return res.status(400).json({ message: 'Pick a valid future date and time' });
+      return res.status(400).json({ success: false, message: 'Pick a valid future date and time' });
     }
 
     const allowedEmails = (group.members || [])
@@ -91,8 +136,7 @@ const scheduleMeeting = async (req, res, next) => {
       settings: { waitingRoomEnabled: waitingRoomEnabled !== false },
     });
 
-    // Invite members who have email
-    const emails = (group.members || []).map((m) => m.email).filter(Boolean);
+    const emails = allowedEmails;
     if (emails.length) {
       try {
         await meetingService.inviteByEmail(meeting, req.user, emails);
@@ -106,6 +150,7 @@ const scheduleMeeting = async (req, res, next) => {
       .lean();
 
     res.status(201).json({
+      success: true,
       meeting: populated,
       invitedCount: emails.length,
       group: { id: group._id, name: group.name, memberCount: group.members.length },
@@ -115,4 +160,4 @@ const scheduleMeeting = async (req, res, next) => {
   }
 };
 
-module.exports = { listMine, create, update, remove, scheduleMeeting };
+module.exports = { listMine, create, getOne, update, remove, scheduleMeeting };

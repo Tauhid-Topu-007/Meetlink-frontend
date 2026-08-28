@@ -84,36 +84,49 @@ const joinMeeting = async (meeting, user, { password, asGuestName } = {}) => {
     err.statusCode = 400;
     throw err;
   }
+
+  // passwordHash is select:false — reload with hash when needed
+  let passwordHash = meeting.passwordHash;
+  if (meeting.hasPassword && !passwordHash) {
+    const withSecret = await Meeting.findById(meeting._id).select('+passwordHash');
+    passwordHash = withSecret?.passwordHash || null;
+  }
+
+  const isHost = meeting.isHostOrCoHost(user._id);
+
   // Group meeting: only pre-set member emails (or host) can join
   if (meeting.isGroup && typeof meeting.canUserJoin === 'function' && !meeting.canUserJoin(user)) {
     const err = new Error('This is a private group meeting. Only invited group members can join.');
     err.statusCode = 403;
     throw err;
   }
-  if (meeting.locked && !meeting.isHostOrCoHost(user._id)) {
+  if (meeting.locked && !isHost) {
     const err = new Error('Meeting is locked. Contact the host.');
     err.statusCode = 403;
     throw err;
   }
-  if (meeting.hasPassword && password) {
-    const valid = await bcrypt.compare(password, meeting.passwordHash);
+
+  if (meeting.hasPassword && !isHost) {
+    if (!password || !String(password).trim()) {
+      const err = new Error('Password required');
+      err.statusCode = 403;
+      throw err;
+    }
+    if (!passwordHash) {
+      const err = new Error('Meeting password is not configured correctly');
+      err.statusCode = 500;
+      throw err;
+    }
+    const valid = await bcrypt.compare(String(password), passwordHash);
     if (!valid) {
       const err = new Error('Incorrect meeting password');
       err.statusCode = 403;
       throw err;
     }
-  } else if (meeting.hasPassword && !meeting.isHostOrCoHost(user._id)) {
-    const err = new Error('Password required');
-    err.statusCode = 403;
-    throw err;
   }
 
   // Waiting room: non-hosts go to waiting if enabled
-  if (
-    meeting.waitingRoomEnabled &&
-    !meeting.isHostOrCoHost(user._id) &&
-    meeting.status === 'live'
-  ) {
+  if (meeting.waitingRoomEnabled && !isHost && meeting.status !== 'ended') {
     return { meeting, needsApproval: true };
   }
 

@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(protect);
 router.get('/', ctrl.listMine);
 router.post('/', ctrl.create);
+router.get('/:id', ctrl.getOne);
 router.put('/:id', ctrl.update);
 router.delete('/:id', ctrl.remove);
 router.post('/:id/schedule', ctrl.scheduleMeeting);
