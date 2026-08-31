@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   Video, LayoutDashboard, Calendar, Users, Settings,
   Film, User, LogOut, Sun, Moon, LogIn, Plus, Menu, X,
-  UsersRound,
+  UsersRound, Shield,
   ChevronLeft, ChevronRight, Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -22,6 +22,7 @@ const nav = [
   { to: '/recordings', label: 'Recordings', icon: Film },
   { to: '/profile', label: 'Profile', icon: User },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/admin', label: 'Admin', icon: Shield, admin: true },
 ];
 
 export default function AppShell({ children, title }) {
@@ -95,7 +96,7 @@ export default function AppShell({ children, title }) {
         )}
 
         <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
-          {nav.map(({ to, label, icon: Icon }) => (
+          {nav.filter((item) => !item.admin || user?.role === 'admin').map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -167,7 +168,7 @@ export default function AppShell({ children, title }) {
             </button>
           </div>
           <nav className="flex-1 px-3 space-y-1">
-            {nav.map(({ to, label, icon: Icon }) => (
+            {nav.filter((item) => !item.admin || user?.role === 'admin').map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -266,7 +267,7 @@ export default function AppShell({ children, title }) {
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-xl px-1 py-1.5 flex justify-around safe-bottom">
-        {nav.slice(0, 5).map(({ to, label, icon: Icon }) => (
+        {nav.filter((item) => !item.admin || user?.role === 'admin').slice(0, 5).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
