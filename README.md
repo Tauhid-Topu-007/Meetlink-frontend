@@ -136,6 +136,7 @@ npm run preview
 | /login | User login | Public |
 | /register | User registration | Public |
 | /dashboard | Main dashboard | Protected |
+| /admin | Admin dashboard | Admin only |
 | /schedule | Meeting scheduling | Protected |
 | /contacts | Contact management | Protected |
 | /groups | Group management | Protected |
