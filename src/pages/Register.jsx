@@ -68,7 +68,7 @@ export default function Register() {
               className="input"
               value={form.phone}
               onChange={handleChange}
-              placeholder="+1 555 000 0000"
+              placeholder="+8801712345678"
             />
           </div>
           <div>

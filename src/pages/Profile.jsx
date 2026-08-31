@@ -49,7 +49,7 @@ export default function Profile() {
           </div>
           <div>
             <label className="label flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Contact number</label>
-            <input className="input" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 555 000 0000" />
+            <input className="input" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+8801712345678" />
           </div>
           <div>
             <label className="label">Bio</label>

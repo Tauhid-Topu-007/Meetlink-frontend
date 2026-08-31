@@ -1484,7 +1484,7 @@ export default function MeetingRoom() {
             <p className="text-sm text-slate-400 mb-4">Comma-separated addresses. Host only.</p>
             <textarea
               className="input min-h-[90px] mb-3"
-              placeholder="alice@company.com, bob@company.com"
+              placeholder="topu@gmail.com, tauhid@gmail.com"
               value={inviteEmails}
               onChange={(e) => setInviteEmails(e.target.value)}
             />

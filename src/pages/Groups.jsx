@@ -185,7 +185,7 @@ export default function Groups() {
               className="input min-h-[120px] font-mono text-xs"
               value={form.membersText}
               onChange={(e) => setForm({ ...form, membersText: e.target.value })}
-              placeholder={'Alice, alice@company.com\nBob, bob@company.com, +15551234\ncharlie@company.com'}
+              placeholder={'Topu, topu@gmail.com, +1234567890\nTauhid,Alif,'}
             />
             <p className="text-xs muted mt-1">Format: Name, email, phone — or email only</p>
           </div>

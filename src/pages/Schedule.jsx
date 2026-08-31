@@ -322,7 +322,7 @@ export default function Schedule() {
             {form.isGroup && (
               <div>
                 <label className="label">Group name</label>
-                <input name="groupName" className="input" value={form.groupName} onChange={handleChange} placeholder="Engineering, Marketing…" />
+                <input name="groupName" className="input" value={form.groupName} onChange={handleChange} placeholder="CSE, Engineering, Marketing…" />
               </div>
             )}
 
@@ -407,7 +407,7 @@ export default function Schedule() {
                   <label className="label">Invite emails</label>
                   <textarea
                     className="input min-h-[88px] text-sm"
-                    placeholder="alice@email.com, bob@email.com"
+                    placeholder="topu@gmail.com, tauhid@gmail.com"
                     value={inviteEmails}
                     onChange={(e) => setInviteEmails(e.target.value)}
                   />
