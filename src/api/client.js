@@ -82,3 +82,17 @@ export const groupApi = {
   remove: (id) => client.delete(`/groups/${id}`),
   scheduleMeeting: (id, data) => client.post(`/groups/${id}/schedule`, data),
 };
+
+export const adminApi = {
+  overview: () => client.get('/admin/overview'),
+  analytics: () => client.get('/admin/analytics'),
+  users: (params) => client.get('/admin/users', { params }),
+  updateUser: (id, data) => client.patch(`/admin/users/${id}`, data),
+  deleteUser: (id) => client.delete(`/admin/users/${id}`),
+  meetings: (params) => client.get('/admin/meetings', { params }),
+  updateMeeting: (meetingId, data) => client.patch(`/admin/meetings/${meetingId}`, data),
+  deleteMeeting: (meetingId) => client.delete(`/admin/meetings/${meetingId}`),
+  attendance: (params) => client.get('/admin/attendance', { params }),
+  settings: () => client.get('/admin/settings'),
+  updateSettings: (data) => client.patch('/admin/settings', data),
+};
